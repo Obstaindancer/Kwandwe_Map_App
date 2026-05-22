@@ -12,11 +12,8 @@ class AppConstants {
   static const double reserveLat = -33.1600;
   static const double reserveLng = 26.5800;
   static const double initialZoom = 13.0;
-  static const double minZoom = 10.0;
+  static const double minZoom = 5.0; // Allowed zooming out further past the map
   static const double maxZoom = 18.0;
 
-  // Pin types for V1
-  static const String pinTypeRhino = 'rhino_alert';
-  static const String pinTypeManual = 'manual';
-  static const String pinTypeWaypoint = 'waypoint';
+  // Removed old string-based pin types in favor of the PinType enum
 }

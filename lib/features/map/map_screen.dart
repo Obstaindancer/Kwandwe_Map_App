@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/constants.dart';
 import '../../models/pin_model.dart';
 import '../coordinates/coordinate_input_sheet.dart';
+import '../pins/pin_selection_sheet.dart';
 import '../pins/pins_provider.dart';
 import 'map_provider.dart';
 
@@ -62,54 +63,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ref.read(mapProvider.notifier).startTracking();
   }
 
-  void _onLongPress(TapPosition tapPosition, LatLng point) {
-    _showPinLabelDialog(point, PinType.manual);
-  }
-
-  void _showPinLabelDialog(LatLng position, PinType type) {
-    final controller = TextEditingController(
-      text: type == PinType.manual ? 'Pin' : 'Rhino Alert',
-    );
-    showDialog(
+  void _onLongPress(TapPosition tapPosition, LatLng point) async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2C),
-        title: const Text('Name this pin',
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Enter label...',
-            hintStyle: TextStyle(color: Colors.white38),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4A843),
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ref.read(pinsProvider.notifier).addPin(
-                    position: position,
-                    label: controller.text.trim().isEmpty
-                        ? 'Pin'
-                        : controller.text.trim(),
-                    type: type,
-                  );
-            },
-            child: const Text('Drop Pin'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF2C2C2C),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      builder: (_) => const PinSelectionSheet(),
     );
+
+    if (result != null) {
+      ref.read(pinsProvider.notifier).addPin(
+            position: point,
+            label: result['label'] as String,
+            type: result['type'] as PinType,
+          );
+    }
   }
 
   void _openCoordinateSheet() async {
@@ -125,11 +96,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     if (result != null) {
       _mapController.move(result, 15.0);
-      ref.read(pinsProvider.notifier).addPin(
-            position: result,
-            label: 'Rhino Alert',
-            type: PinType.rhinoAlert,
-          );
+      
+      if (!mounted) return;
+      final pinInfo = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: const Color(0xFF2C2C2C),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (_) => const PinSelectionSheet(),
+      );
+
+      if (pinInfo != null) {
+        ref.read(pinsProvider.notifier).addPin(
+              position: result,
+              label: pinInfo['label'] as String,
+              type: pinInfo['type'] as PinType,
+            );
+      }
     }
   }
 

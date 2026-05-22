@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-enum PinType { rhinoAlert, manual, waypoint }
+enum PinType {
+  rhinoRed,
+  rhinoAmber,
+  rhinoGray,
+  sighting,
+  maintenance,
+  waypoint
+}
 
 class MapPin {
   final String id;
@@ -20,23 +27,61 @@ class MapPin {
     this.rawCoordinates,
   });
 
+  factory MapPin.fromJson(Map<String, dynamic> json) {
+    return MapPin(
+      id: json['id'] as String,
+      position: LatLng(json['lat'] as double, json['lng'] as double),
+      label: json['label'] as String,
+      type: PinType.values.firstWhere(
+        (e) => e.toString() == json['type'],
+        orElse: () => PinType.waypoint,
+      ),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      rawCoordinates: json['rawCoordinates'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'label': label,
+      'type': type.toString(),
+      'createdAt': createdAt.toIso8601String(),
+      'rawCoordinates': rawCoordinates,
+    };
+  }
+
   Color get colour {
     switch (type) {
-      case PinType.rhinoAlert:
-        return const Color(0xFFD32F2F); // red — urgent
-      case PinType.manual:
-        return const Color(0xFF5C4A1E); // brown — manual drop
+      case PinType.rhinoRed:
+        return const Color(0xFFD32F2F); // Urgent
+      case PinType.rhinoAmber:
+        return const Color(0xFFFFA000); // Check needed
+      case PinType.rhinoGray:
+        return const Color(0xFF9E9E9E); // Normal
+      case PinType.sighting:
+        return const Color(0xFF8E24AA); // Purple for sightings
+      case PinType.maintenance:
+        return const Color(0xFF1976D2); // Blue for infrastructure
       case PinType.waypoint:
-        return const Color(0xFFD4A843); // amber — waypoint
+        return const Color(0xFFD4A843); // Standard gold
     }
   }
 
   String get typeLabel {
     switch (type) {
-      case PinType.rhinoAlert:
-        return 'Rhino Alert';
-      case PinType.manual:
-        return 'Manual Pin';
+      case PinType.rhinoRed:
+        return 'Rhino (Red)';
+      case PinType.rhinoAmber:
+        return 'Rhino (Amber)';
+      case PinType.rhinoGray:
+        return 'Rhino (Gray)';
+      case PinType.sighting:
+        return 'Sighting';
+      case PinType.maintenance:
+        return 'Maintenance';
       case PinType.waypoint:
         return 'Waypoint';
     }
