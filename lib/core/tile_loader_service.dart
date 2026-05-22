@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 /// copies it to the app's documents directory so flutter_map_mbtiles
 /// can read it as a regular file.
 class TileLoaderService {
-  static const String _assetPath = 'tiles/kwandwe_2024.mbtiles';
+  static const String _assetPath = 'Assets/tiles/kwandwe_2024.mbtiles';
   static const String _fileName = 'kwandwe_2024.mbtiles';
 
   /// Returns the path to the usable MBTiles file on device storage.
@@ -41,6 +41,9 @@ class TileLoaderService {
         sink.add(bytes.sublist(written, end));
         written = end;
         onProgress?.call(written / bytes.length);
+        // Yield to the event loop so the UI progress bar can update
+        // and we don't overwhelm the memory buffer
+        await Future.delayed(const Duration(milliseconds: 10));
       }
 
       await sink.flush();

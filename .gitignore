@@ -48,3 +48,5 @@ app.*.map.json
 Assets/map.TIFF/Kwandwe.tiff
 android/app/src/main/assets/tiles/kwandwe_2024.mbtiles
 Assets/map.TIFF/kwandwe_2024.partial_tiles.db
+Assets/tiles/kwandwe_2024.mbtiles
+

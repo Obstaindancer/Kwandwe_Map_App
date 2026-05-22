@@ -30,6 +30,10 @@ android {
         versionName = flutter.versionName
     }
 
+    androidResources {
+        noCompress.add("mbtiles")
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

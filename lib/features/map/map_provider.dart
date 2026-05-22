@@ -46,8 +46,8 @@ class MapNotifier extends Notifier<MapState> {
 
   @override
   MapState build() {
-    // Start tile extraction immediately on provider creation
-    _extractTiles();
+    // Start tile extraction immediately on provider creation, but wait until build is done
+    Future.microtask(_extractTiles);
     return const MapState(tileStatus: TileLoadStatus.loading);
   }
 

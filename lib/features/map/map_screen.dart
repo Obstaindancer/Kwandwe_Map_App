@@ -457,3 +457,34 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 }
+
+class MbTilesLayer extends StatefulWidget {
+  final String mbTilesPath;
+  const MbTilesLayer({super.key, required this.mbTilesPath});
+
+  @override
+  State<MbTilesLayer> createState() => _MbTilesLayerState();
+}
+
+class _MbTilesLayerState extends State<MbTilesLayer> {
+  late final MbTilesTileProvider _tileProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    _tileProvider = MbTilesTileProvider.fromPath(path: widget.mbTilesPath);
+  }
+
+  @override
+  void dispose() {
+    _tileProvider.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TileLayer(
+      tileProvider: _tileProvider,
+    );
+  }
+}
