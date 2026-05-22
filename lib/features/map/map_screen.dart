@@ -179,6 +179,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               style:
                   const TextStyle(color: Colors.white38, fontSize: 12),
             ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: const Icon(Icons.navigation),
+                label: const Text('Navigate to Pin'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  ref.read(mapProvider.notifier).startNavigation(pin);
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -189,6 +206,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return '${dt.day}/${dt.month}/${dt.year}  '
         '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _getBearingString(double bearing) {
+    if (bearing < 0) bearing += 360;
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    final index = ((bearing + 22.5) % 360) / 45;
+    return directions[index.floor()];
   }
 
   // ── Loading screen shown only on first launch while tile extracts ─────────
@@ -363,6 +387,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ],
                 ),
 
+              // Navigation Line
+              if (mapState.activeNavPin != null && mapState.currentPosition != null)
+                PolylineLayer(
+                  polylines: <Polyline<Object>>[
+                    Polyline<Object>(
+                      points: [
+                        LatLng(
+                          mapState.currentPosition!.latitude,
+                          mapState.currentPosition!.longitude,
+                        ),
+                        mapState.activeNavPin!.position,
+                      ],
+                      color: Colors.blue,
+                      strokeWidth: 4.0,
+                    ),
+                  ],
+                ),
+
               // Markers layer
               MarkerLayer(
                 markers: [
@@ -432,6 +474,87 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
           ),
+
+          // Navigation HUD
+          if (mapState.activeNavPin != null && mapState.currentPosition != null)
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Builder(
+                builder: (context) {
+                  final currentPos = LatLng(
+                    mapState.currentPosition!.latitude,
+                    mapState.currentPosition!.longitude,
+                  );
+                  final targetPos = mapState.activeNavPin!.position;
+                  const distanceCalc = Distance();
+                  final meters = distanceCalc.as(LengthUnit.Meter, currentPos, targetPos);
+                  final bearingDeg = distanceCalc.bearing(currentPos, targetPos);
+                  final bearingStr = _getBearingString(bearingDeg);
+                  
+                  final distStr = meters > 1000
+                      ? '${(meters / 1000).toStringAsFixed(1)} km'
+                      : '${meters.toStringAsFixed(0)} m';
+
+                  return Card(
+                    color: const Color(0xFF2C2C2C),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.navigation, color: mapState.activeNavPin!.colour, size: 28),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  mapState.activeNavPin!.label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text(
+                                      distStr,
+                                      style: const TextStyle(
+                                        color: Colors.blue,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Bearing: $bearingStr',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white54),
+                            onPressed: () => ref.read(mapProvider.notifier).stopNavigation(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

@@ -21,9 +21,15 @@ class TileLoaderService {
     final dir = await getApplicationDocumentsDirectory();
     final targetFile = File('${dir.path}/$_fileName');
 
-    // Already extracted — return immediately
+    // Already extracted — verify it's not a corrupted/partial extraction
     if (await targetFile.exists()) {
-      return targetFile.path;
+      final stat = await targetFile.stat();
+      if (stat.size > 120000000) { // Should be ~121MB
+        return targetFile.path;
+      } else {
+        // It's partially extracted (malformed DB). Delete and start over.
+        await targetFile.delete();
+      }
     }
 
     // First launch — copy from APK assets to device storage
