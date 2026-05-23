@@ -17,6 +17,8 @@ class MapState {
   final MapPin? activeNavPin;
   final List<LatLng> driveTrack;
   final bool isRecordingDrive;
+  final bool isMeasuring;
+  final List<LatLng> measurePoints;
 
   const MapState({
     this.currentPosition,
@@ -28,6 +30,8 @@ class MapState {
     this.activeNavPin,
     this.driveTrack = const [],
     this.isRecordingDrive = false,
+    this.isMeasuring = false,
+    this.measurePoints = const [],
   });
 
   MapState copyWith({
@@ -40,6 +44,8 @@ class MapState {
     MapPin? activeNavPin,
     List<LatLng>? driveTrack,
     bool? isRecordingDrive,
+    bool? isMeasuring,
+    List<LatLng>? measurePoints,
   }) {
     return MapState(
       currentPosition: currentPosition ?? this.currentPosition,
@@ -51,6 +57,8 @@ class MapState {
       activeNavPin: activeNavPin ?? this.activeNavPin,
       driveTrack: driveTrack ?? this.driveTrack,
       isRecordingDrive: isRecordingDrive ?? this.isRecordingDrive,
+      isMeasuring: isMeasuring ?? this.isMeasuring,
+      measurePoints: measurePoints ?? this.measurePoints,
     );
   }
 
@@ -65,6 +73,8 @@ class MapState {
       activeNavPin: null,
       driveTrack: driveTrack,
       isRecordingDrive: isRecordingDrive,
+      isMeasuring: isMeasuring,
+      measurePoints: measurePoints,
     );
   }
 }
@@ -151,6 +161,24 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearDriveTrack() {
     state = state.copyWith(driveTrack: [], isRecordingDrive: false);
+  }
+
+  void toggleMeasuring() {
+    state = state.copyWith(
+      isMeasuring: !state.isMeasuring,
+      measurePoints: [], // Clear points when toggling
+    );
+  }
+
+  void addMeasurePoint(LatLng point) {
+    if (!state.isMeasuring) return;
+    state = state.copyWith(
+      measurePoints: List.from(state.measurePoints)..add(point),
+    );
+  }
+
+  void clearMeasurePoints() {
+    state = state.copyWith(measurePoints: []);
   }
 }
 

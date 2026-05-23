@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_mbtiles/flutter_map_mbtiles.dart';
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -64,7 +65,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ref.read(mapProvider.notifier).startTracking();
   }
 
+  void _onTap(TapPosition tapPosition, LatLng point) {
+    if (ref.read(mapProvider).isMeasuring) {
+      ref.read(mapProvider.notifier).addMeasurePoint(point);
+    }
+  }
+
   void _onLongPress(TapPosition tapPosition, LatLng point) async {
+    if (ref.read(mapProvider).isMeasuring) return; // Disable pins while measuring
+
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
@@ -361,13 +370,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           children: [
             const Text('Kwandwe Map', style: TextStyle(fontSize: 18)),
             if (mapState.currentPosition != null)
-              Text(
-                '${mapState.currentPosition!.latitude.toStringAsFixed(5)}, ${mapState.currentPosition!.longitude.toStringAsFixed(5)} • ±${mapState.currentPosition!.accuracy.toStringAsFixed(0)}m',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.white70,
-                  fontFamily: 'monospace',
-                ),
+              Row(
+                children: [
+                  Text(
+                    '${mapState.currentPosition!.latitude.toStringAsFixed(5)}, ${mapState.currentPosition!.longitude.toStringAsFixed(5)} • ±${mapState.currentPosition!.accuracy.toStringAsFixed(0)}m',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white70,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      final coords = '${mapState.currentPosition!.latitude.toStringAsFixed(5)}, ${mapState.currentPosition!.longitude.toStringAsFixed(5)}';
+                      Clipboard.setData(ClipboardData(text: coords));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Your coordinates copied to clipboard')),
+                      );
+                    },
+                    child: const Icon(Icons.copy, size: 14, color: Colors.blue),
+                  ),
+                ],
               ),
           ],
         ),
@@ -403,6 +427,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   const LatLng(AppConstants.boundsNorthEastLat, AppConstants.boundsNorthEastLng),
                 ),
               ),
+              onTap: _onTap,
               onLongPress: _onLongPress,
             ),
             children: [
@@ -458,6 +483,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ],
                 ),
 
+              // Distance Measurement Tool
+              if (mapState.isMeasuring && mapState.measurePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: <Polyline<Object>>[
+                    Polyline<Object>(
+                      points: mapState.measurePoints,
+                      color: Colors.orangeAccent,
+                      strokeWidth: 4.0,
+                    ),
+                  ],
+                ),
+
 
               // Markers layer
               MarkerLayer(
@@ -493,7 +530,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       width: 36,
                       height: 36,
                       child: GestureDetector(
-                        onTap: () => _showPinDetail(pin),
+                        onTap: () {
+                          if (!mapState.isMeasuring) _showPinDetail(pin);
+                        },
                         child: Icon(
                           pin.icon,
                           color: pin.colour,
@@ -505,6 +544,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ),
                     ),
                   ),
+
+                  // Measurement Points Nodes
+                  if (mapState.isMeasuring)
+                    ...mapState.measurePoints.map(
+                      (point) => Marker(
+                        point: point,
+                        width: 12,
+                        height: 12,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.orangeAccent,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -512,24 +568,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
 
 
-          // GPS recenter button
-          Positioned(
-            right: 16,
-            bottom: 100,
-            child: FloatingActionButton.small(
-              heroTag: 'gps',
-              onPressed: _centreOnGps,
-              backgroundColor: const Color(0xFF2C2C2C),
-              child: Icon(
-                mapState.isTracking
-                    ? Icons.my_location
-                    : Icons.location_searching,
-                color: mapState.isTracking
-                    ? Colors.blue
-                    : Colors.white54,
-              ),
-            ),
-          ),
+
 
           // Navigation HUD
           if (mapState.activeNavPin != null && mapState.currentPosition != null)
@@ -611,41 +650,162 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 },
               ),
             ),
+
+          // Measurement HUD
+          if (mapState.isMeasuring)
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Builder(
+                builder: (context) {
+                  double totalMeters = 0;
+                  const distanceCalc = Distance();
+                  for (int i = 0; i < mapState.measurePoints.length - 1; i++) {
+                    totalMeters += distanceCalc.as(
+                      LengthUnit.Meter,
+                      mapState.measurePoints[i],
+                      mapState.measurePoints[i + 1],
+                    );
+                  }
+                  
+                  final distStr = totalMeters > 1000
+                      ? '${(totalMeters / 1000).toStringAsFixed(2)} km'
+                      : '${totalMeters.toStringAsFixed(0)} m';
+
+                  return Card(
+                    color: const Color(0xFF2C2C2C),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.straighten, color: Colors.orangeAccent, size: 28),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Measurement Mode',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Distance: $distStr',
+                                  style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.undo, color: Colors.white54),
+                            onPressed: mapState.measurePoints.isNotEmpty
+                                ? () => ref.read(mapProvider.notifier).clearMeasurePoints()
+                                : null,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white54),
+                            onPressed: () => ref.read(mapProvider.notifier).toggleMeasuring(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (mapState.driveTrack.isNotEmpty && !mapState.isRecordingDrive) ...[
-            FloatingActionButton.extended(
-              heroTag: 'clear_track',
-              onPressed: () => ref.read(mapProvider.notifier).clearDriveTrack(),
-              icon: const Icon(Icons.delete_sweep, color: Colors.white),
-              label: const Text('Clear Track', style: TextStyle(color: Colors.white)),
-              backgroundColor: Colors.red.shade800,
+          if (mapState.currentPosition != null && mapState.currentPosition!.heading > 0) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF2C2C2C),
+                shape: BoxShape.circle,
+              ),
+              child: Transform.rotate(
+                angle: mapState.currentPosition!.heading * (math.pi / 180),
+                child: const Icon(Icons.navigation, color: Colors.blue, size: 28),
+              ),
             ),
             const SizedBox(height: 12),
           ],
-          FloatingActionButton.extended(
-            heroTag: 'track_toggle',
-            onPressed: () => ref.read(mapProvider.notifier).toggleDriveRecording(),
-            icon: Icon(
-              mapState.isRecordingDrive ? Icons.stop : Icons.directions_walk,
-              color: Colors.white,
+          FloatingActionButton.small(
+            heroTag: 'gps',
+            onPressed: _centreOnGps,
+            backgroundColor: const Color(0xFF2C2C2C),
+            child: Icon(
+              mapState.isTracking
+                  ? Icons.my_location
+                  : Icons.location_searching,
+              color: mapState.isTracking
+                  ? Colors.blue
+                  : Colors.white54,
             ),
-            label: Text(
-              mapState.isRecordingDrive ? 'Stop Tracking' : 'Track Drive/Walk',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            backgroundColor: mapState.isRecordingDrive ? Colors.red : Colors.green.shade700,
           ),
           const SizedBox(height: 12),
-          FloatingActionButton.extended(
-            heroTag: 'go_to_coords',
-            onPressed: _openCoordinateSheet,
-            icon: const Icon(Icons.gps_fixed),
-            label: const Text('Go to Coordinates'),
+          if (mapState.driveTrack.isNotEmpty && !mapState.isRecordingDrive) ...[
+            SizedBox(
+              height: 44,
+              child: FloatingActionButton.extended(
+                heroTag: 'clear_track',
+                onPressed: () => ref.read(mapProvider.notifier).clearDriveTrack(),
+                icon: const Icon(Icons.delete_sweep, color: Colors.white, size: 20),
+                label: const Text('Clear Track', style: TextStyle(color: Colors.white, fontSize: 13)),
+                backgroundColor: Colors.red.shade800,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            height: 44,
+            child: FloatingActionButton.extended(
+              heroTag: 'measure_toggle',
+              onPressed: () => ref.read(mapProvider.notifier).toggleMeasuring(),
+              icon: Icon(
+                mapState.isMeasuring ? Icons.close : Icons.straighten,
+                color: Colors.white,
+                size: 20,
+              ),
+              label: Text(
+                mapState.isMeasuring ? 'Stop Measuring' : 'Measure Distance',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              backgroundColor: mapState.isMeasuring ? Colors.grey.shade700 : Colors.orange.shade700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 44,
+            child: FloatingActionButton.extended(
+              heroTag: 'track_toggle',
+              onPressed: () => ref.read(mapProvider.notifier).toggleDriveRecording(),
+              icon: Icon(
+                mapState.isRecordingDrive ? Icons.stop : Icons.directions_walk,
+                color: Colors.white,
+                size: 20,
+              ),
+              label: Text(
+                mapState.isRecordingDrive ? 'Stop Tracking' : 'Track Drive/Walk',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              backgroundColor: mapState.isRecordingDrive ? Colors.red : Colors.green.shade700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 44,
+            child: FloatingActionButton.extended(
+              heroTag: 'go_to_coords',
+              onPressed: _openCoordinateSheet,
+              icon: const Icon(Icons.gps_fixed, size: 20),
+              label: const Text('Go to Coordinates', style: TextStyle(fontSize: 13)),
+            ),
           ),
         ],
       ),
