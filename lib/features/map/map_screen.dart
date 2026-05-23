@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_mbtiles/flutter_map_mbtiles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -143,14 +144,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.location_on, color: pin.colour),
+                Icon(pin.icon, color: pin.colour),
                 const SizedBox(width: 8),
-                Text(pin.label,
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-                const Spacer(),
+                Expanded(
+                  child: Text(pin.label,
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+                ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () {
@@ -165,13 +167,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 style:
                     const TextStyle(color: Colors.white54, fontSize: 13)),
             const SizedBox(height: 4),
-            Text(
-              '${pin.position.latitude.toStringAsFixed(6)}, '
-              '${pin.position.longitude.toStringAsFixed(6)}',
-              style: const TextStyle(
-                  color: Color(0xFFD4A843),
-                  fontFamily: 'monospace',
-                  fontSize: 13),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${pin.position.latitude.toStringAsFixed(6)}, '
+                    '${pin.position.longitude.toStringAsFixed(6)}',
+                    style: const TextStyle(
+                        color: Color(0xFFD4A843),
+                        fontFamily: 'monospace',
+                        fontSize: 13),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, color: Colors.white54, size: 20),
+                  onPressed: () {
+                    final coords = '${pin.position.latitude.toStringAsFixed(6)}, ${pin.position.longitude.toStringAsFixed(6)}';
+                    Clipboard.setData(ClipboardData(text: coords));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Coordinates copied to clipboard')),
+                    );
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -338,7 +356,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kwandwe Map'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Kwandwe Map', style: TextStyle(fontSize: 18)),
+            if (mapState.currentPosition != null)
+              Text(
+                '${mapState.currentPosition!.latitude.toStringAsFixed(5)}, ${mapState.currentPosition!.longitude.toStringAsFixed(5)} • ±${mapState.currentPosition!.accuracy.toStringAsFixed(0)}m',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.white70,
+                  fontFamily: 'monospace',
+                ),
+              ),
+          ],
+        ),
         actions: [
           if (pins.isNotEmpty)
             TextButton.icon(
@@ -463,7 +495,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       child: GestureDetector(
                         onTap: () => _showPinDetail(pin),
                         child: Icon(
-                          Icons.location_on,
+                          pin.icon,
                           color: pin.colour,
                           size: 36,
                           shadows: const [
@@ -648,6 +680,8 @@ class _MbTilesLayerState extends State<MbTilesLayer> {
   Widget build(BuildContext context) {
     return TileLayer(
       tileProvider: _tileProvider,
+      maxNativeZoom: 16, // Maximum zoom level physically in the MBTiles file
+      maxZoom: 22,       // Allows stretching the level 16 tiles to look closer
     );
   }
 }

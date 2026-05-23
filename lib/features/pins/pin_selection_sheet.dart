@@ -15,24 +15,23 @@ class _PinSelectionSheetState extends State<PinSelectionSheet> {
 
   final List<Map<String, dynamic>> _pinCategories = [
     {
-      'header': 'Security / Anti-Poaching',
+      'header': 'Anti-Poaching & Monitoring',
       'items': [
         PinType.rhinoRed,
         PinType.rhinoAmber,
         PinType.rhinoGray,
+        PinType.camera,
+        PinType.spoorSnare,
       ],
     },
     {
-      'header': 'Field Guides',
+      'header': 'Kwandwe General',
       'items': [
-        PinType.sighting,
         PinType.waypoint,
-      ],
-    },
-    {
-      'header': 'Farm Staff',
-      'items': [
+        PinType.sighting,
+        PinType.roadIssue,
         PinType.maintenance,
+        PinType.staffTeam,
       ],
     },
   ];
@@ -56,6 +55,16 @@ class _PinSelectionSheetState extends State<PinSelectionSheet> {
       type: type,
       createdAt: DateTime.now(),
     ).typeLabel;
+  }
+
+  IconData _getIconForType(PinType type) {
+    return MapPin(
+      id: '',
+      position: const LatLng(0, 0),
+      label: '',
+      type: type,
+      createdAt: DateTime.now(),
+    ).icon;
   }
 
   @override
@@ -111,7 +120,9 @@ class _PinSelectionSheetState extends State<PinSelectionSheet> {
                     children: (category['items'] as List<PinType>).map((type) {
                       final isSelected = _selectedType == type;
                       final color = _getColorForType(type);
+                      final icon = _getIconForType(type);
                       return ChoiceChip(
+                        avatar: Icon(icon, color: isSelected ? color : Colors.white70, size: 18),
                         label: Text(_getLabelForType(type)),
                         selected: isSelected,
                         selectedColor: color.withOpacity(0.3),

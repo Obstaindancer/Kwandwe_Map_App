@@ -13,7 +13,7 @@ class AppConstants {
   static const double reserveLng = 26.5800;
   static const double initialZoom = 13.0;
   static const double minZoom = 12.5; // Prevent zooming out past the reserve
-  static const double maxZoom = 18.0;
+  static const double maxZoom = 22.0;
 
   // Exact bounds of the MBTiles map to prevent scrolling out of bounds
   static const double boundsSouthWestLat = -33.236810;

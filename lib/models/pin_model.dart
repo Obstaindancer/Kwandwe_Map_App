@@ -5,9 +5,13 @@ enum PinType {
   rhinoRed,
   rhinoAmber,
   rhinoGray,
+  camera,
+  spoorSnare,
+  waypoint,
   sighting,
+  roadIssue,
   maintenance,
-  waypoint
+  staffTeam,
 }
 
 class MapPin {
@@ -56,34 +60,63 @@ class MapPin {
   Color get colour {
     switch (type) {
       case PinType.rhinoRed:
-        return const Color(0xFFD32F2F); // Urgent
+        return const Color(0xFFD32F2F); // Red
       case PinType.rhinoAmber:
-        return const Color(0xFFFFA000); // Check needed
+        return const Color(0xFFFFA000); // Amber
       case PinType.rhinoGray:
-        return const Color(0xFF9E9E9E); // Normal
-      case PinType.sighting:
-        return const Color(0xFF8E24AA); // Purple for sightings
-      case PinType.maintenance:
-        return const Color(0xFF1976D2); // Blue for infrastructure
+        return const Color(0xFF9E9E9E); // Gray
+      case PinType.camera:
+        return const Color(0xFF673AB7); // Deep Purple
+      case PinType.spoorSnare:
+        return const Color(0xFF795548); // Brown
       case PinType.waypoint:
-        return const Color(0xFFD4A843); // Standard gold
+        return const Color(0xFF2196F3); // Blue
+      case PinType.sighting:
+        return const Color(0xFF009688); // Teal
+      case PinType.roadIssue:
+        return const Color(0xFFFF5722); // Deep Orange
+      case PinType.maintenance:
+        return const Color(0xFFFFEB3B); // Yellow
+      case PinType.staffTeam:
+        return const Color(0xFF8BC34A); // Light Green
     }
   }
 
   String get typeLabel {
     switch (type) {
+      case PinType.rhinoRed: return 'Rhino (Red)';
+      case PinType.rhinoAmber: return 'Rhino (Amber)';
+      case PinType.rhinoGray: return 'Rhino (Gray)';
+      case PinType.camera: return 'Camera';
+      case PinType.spoorSnare: return 'Spoor / Snare Found';
+      case PinType.waypoint: return 'Waypoint';
+      case PinType.sighting: return 'Animal Sighting';
+      case PinType.roadIssue: return 'Damaged/Blocked Road';
+      case PinType.maintenance: return 'Maintenance';
+      case PinType.staffTeam: return 'Field Staff Team';
+    }
+  }
+
+  IconData get icon {
+    switch (type) {
       case PinType.rhinoRed:
-        return 'Rhino (Red)';
       case PinType.rhinoAmber:
-        return 'Rhino (Amber)';
       case PinType.rhinoGray:
-        return 'Rhino (Gray)';
-      case PinType.sighting:
-        return 'Sighting';
-      case PinType.maintenance:
-        return 'Maintenance';
+        return Icons.pets;
+      case PinType.camera:
+        return Icons.camera_alt;
+      case PinType.spoorSnare:
+        return Icons.dangerous;
       case PinType.waypoint:
-        return 'Waypoint';
+        return Icons.flag;
+      case PinType.sighting:
+        return Icons.visibility;
+      case PinType.roadIssue:
+        return Icons.remove_road;
+      case PinType.maintenance:
+        return Icons.build;
+      case PinType.staffTeam:
+        return Icons.groups;
     }
   }
 
