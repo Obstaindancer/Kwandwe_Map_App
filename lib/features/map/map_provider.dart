@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import '../../core/tile_loader_service.dart';
 import '../../models/pin_model.dart';
 
@@ -14,6 +15,8 @@ class MapState {
   final String? tilePath;          // path to extracted MBTiles file
   final String? tileError;
   final MapPin? activeNavPin;
+  final List<LatLng> driveTrack;
+  final bool isRecordingDrive;
 
   const MapState({
     this.currentPosition,
@@ -23,6 +26,8 @@ class MapState {
     this.tilePath,
     this.tileError,
     this.activeNavPin,
+    this.driveTrack = const [],
+    this.isRecordingDrive = false,
   });
 
   MapState copyWith({
@@ -33,6 +38,8 @@ class MapState {
     String? tilePath,
     String? tileError,
     MapPin? activeNavPin,
+    List<LatLng>? driveTrack,
+    bool? isRecordingDrive,
   }) {
     return MapState(
       currentPosition: currentPosition ?? this.currentPosition,
@@ -42,6 +49,8 @@ class MapState {
       tilePath: tilePath ?? this.tilePath,
       tileError: tileError,
       activeNavPin: activeNavPin ?? this.activeNavPin,
+      driveTrack: driveTrack ?? this.driveTrack,
+      isRecordingDrive: isRecordingDrive ?? this.isRecordingDrive,
     );
   }
 
@@ -54,6 +63,8 @@ class MapState {
       tilePath: tilePath,
       tileError: tileError,
       activeNavPin: null,
+      driveTrack: driveTrack,
+      isRecordingDrive: isRecordingDrive,
     );
   }
 }
@@ -107,7 +118,17 @@ class MapNotifier extends Notifier<MapState> {
         distanceFilter: 5,
       ),
     ).listen((position) {
-      state = state.copyWith(currentPosition: position);
+      final newPos = LatLng(position.latitude, position.longitude);
+      List<LatLng> newTrack = state.driveTrack;
+
+      if (state.isRecordingDrive) {
+        newTrack = List.from(state.driveTrack)..add(newPos);
+      }
+
+      state = state.copyWith(
+        currentPosition: position,
+        driveTrack: newTrack,
+      );
     });
   }
 
@@ -122,6 +143,14 @@ class MapNotifier extends Notifier<MapState> {
 
   void stopNavigation() {
     state = state.clearNavPin();
+  }
+
+  void toggleDriveRecording() {
+    state = state.copyWith(isRecordingDrive: !state.isRecordingDrive);
+  }
+
+  void clearDriveTrack() {
+    state = state.copyWith(driveTrack: [], isRecordingDrive: false);
   }
 }
 

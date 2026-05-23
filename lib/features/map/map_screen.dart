@@ -362,6 +362,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               initialZoom: AppConstants.initialZoom,
               minZoom: AppConstants.minZoom,
               maxZoom: AppConstants.maxZoom,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
+              cameraConstraint: CameraConstraint.contain(
+                bounds: LatLngBounds(
+                  const LatLng(AppConstants.boundsSouthWestLat, AppConstants.boundsSouthWestLng),
+                  const LatLng(AppConstants.boundsNorthEastLat, AppConstants.boundsNorthEastLng),
+                ),
+              ),
               onLongPress: _onLongPress,
             ),
             children: [
@@ -404,6 +413,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ],
                 ),
+
+              // Route Tracing (Drive Track)
+              if (mapState.driveTrack.isNotEmpty)
+                PolylineLayer(
+                  polylines: <Polyline<Object>>[
+                    Polyline<Object>(
+                      points: mapState.driveTrack,
+                      color: Colors.green.withOpacity(0.8),
+                      strokeWidth: 5.0,
+                    ),
+                  ],
+                ),
+
 
               // Markers layer
               MarkerLayer(
@@ -455,6 +477,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ],
           ),
+
+
 
           // GPS recenter button
           Positioned(
@@ -557,10 +581,41 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCoordinateSheet,
-        icon: const Icon(Icons.gps_fixed),
-        label: const Text('Go to Coordinates'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (mapState.driveTrack.isNotEmpty && !mapState.isRecordingDrive) ...[
+            FloatingActionButton.extended(
+              heroTag: 'clear_track',
+              onPressed: () => ref.read(mapProvider.notifier).clearDriveTrack(),
+              icon: const Icon(Icons.delete_sweep, color: Colors.white),
+              label: const Text('Clear Track', style: TextStyle(color: Colors.white)),
+              backgroundColor: Colors.red.shade800,
+            ),
+            const SizedBox(height: 12),
+          ],
+          FloatingActionButton.extended(
+            heroTag: 'track_toggle',
+            onPressed: () => ref.read(mapProvider.notifier).toggleDriveRecording(),
+            icon: Icon(
+              mapState.isRecordingDrive ? Icons.stop : Icons.directions_walk,
+              color: Colors.white,
+            ),
+            label: Text(
+              mapState.isRecordingDrive ? 'Stop Tracking' : 'Track Drive/Walk',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: mapState.isRecordingDrive ? Colors.red : Colors.green.shade700,
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'go_to_coords',
+            onPressed: _openCoordinateSheet,
+            icon: const Icon(Icons.gps_fixed),
+            label: const Text('Go to Coordinates'),
+          ),
+        ],
       ),
     );
   }
