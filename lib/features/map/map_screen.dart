@@ -6,7 +6,7 @@ import 'package:flutter_map_mbtiles/flutter_map_mbtiles.dart';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import '../../core/constants.dart';
 import '../../models/pin_model.dart';
 import '../coordinates/coordinate_input_sheet.dart';
@@ -23,7 +23,7 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
-
+  bool _isRotationLocked = true;
   @override
   void initState() {
     super.initState();
@@ -188,15 +188,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ref.read(mapProvider.notifier).clearDriveTrack();
                     },
                   ),
-                ListTile(
-                  leading: const Icon(Icons.gps_fixed, color: Colors.blueAccent),
-                  title: const Text('Go to Coordinates', style: TextStyle(color: Colors.white, fontSize: 16)),
-                  subtitle: const Text('Jump to a specific latitude and longitude', style: TextStyle(color: Colors.white54)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _openCoordinateSheet();
-                  },
-                ),
                 const SizedBox(height: 16),
               ],
             ),
@@ -496,8 +487,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               initialZoom: AppConstants.initialZoom,
               minZoom: AppConstants.minZoom,
               maxZoom: AppConstants.maxZoom,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all,
+              interactionOptions: InteractionOptions(
+                flags: InteractiveFlag.all & ~(_isRotationLocked ? InteractiveFlag.rotate : InteractiveFlag.none),
               ),
               cameraConstraint: CameraConstraint.contain(
                 bounds: LatLngBounds(
@@ -644,9 +635,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               
               // Scale Bar
               const Scalebar(
-                alignment: Alignment.topRight,
-                padding: EdgeInsets.only(right: 16, top: 72),
-                textStyle: TextStyle(color: Colors.white, fontSize: 12, shadows: [Shadow(color: Colors.black, blurRadius: 2)]),
+                alignment: Alignment.bottomLeft,
+                padding: EdgeInsets.only(left: 16, bottom: 24),
+                textStyle: TextStyle(
+                  color: Colors.white, 
+                  fontSize: 13, 
+                  fontWeight: FontWeight.w600,
+                  shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+                ),
                 lineColor: Colors.white,
               ),
             ],
@@ -660,17 +656,75 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               stream: _mapController.mapEventStream,
               builder: (context, snapshot) {
                 final rotation = _mapController.camera.rotation;
-                if (rotation == 0.0) return const SizedBox.shrink();
                 
-                return FloatingActionButton.small(
-                  heroTag: 'north_arrow',
-                  onPressed: () {
-                    _mapController.rotate(0.0);
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (_isRotationLocked) {
+                        _isRotationLocked = false;
+                      } else {
+                        _mapController.rotate(0.0);
+                        _isRotationLocked = true;
+                      }
+                    });
                   },
-                  backgroundColor: const Color(0xFF2C2C2C),
-                  child: Transform.rotate(
-                    angle: -rotation * (math.pi / 180),
-                    child: const Icon(Icons.arrow_upward, color: Colors.red),
+                  child: ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C2C2C).withValues(alpha: 0.8),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4),
+                          ],
+                        ),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.center,
+                          children: [
+                            Transform.rotate(
+                              angle: -rotation * (math.pi / 180),
+                              child: CustomPaint(
+                                size: const Size(14, 28),
+                                painter: CompassNeedlePainter(),
+                              ),
+                            ),
+                            if (_isRotationLocked)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black87,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white24, width: 1),
+                                  ),
+                                  child: const Icon(Icons.lock, color: Colors.white, size: 10),
+                                ),
+                              )
+                            else
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black87,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white24, width: 1),
+                                  ),
+                                  child: const Icon(Icons.lock_open, color: Colors.white70, size: 10),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 );
               },
@@ -898,6 +952,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             label: const Text('Tools', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'go_to_coords',
+            onPressed: _openCoordinateSheet,
+            backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
+            elevation: 4,
+            icon: const Icon(Icons.gps_fixed, color: Colors.blueAccent, size: 20),
+            label: const Text('Coordinates', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
         ],
       ),
     );
@@ -935,4 +998,34 @@ class _MbTilesLayerState extends State<MbTilesLayer> {
       maxZoom: 22,       // Allows stretching the level 16 tiles to look closer
     );
   }
+}
+
+class CompassNeedlePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    // North (Red) triangle
+    final northPath = Path()
+      ..moveTo(center.dx, 0)
+      ..lineTo(center.dx + 6, center.dy)
+      ..lineTo(center.dx - 6, center.dy)
+      ..close();
+    canvas.drawPath(northPath, Paint()..color = Colors.red.shade600);
+
+    // South (White/Grey) triangle
+    final southPath = Path()
+      ..moveTo(center.dx, size.height)
+      ..lineTo(center.dx + 6, center.dy)
+      ..lineTo(center.dx - 6, center.dy)
+      ..close();
+    canvas.drawPath(southPath, Paint()..color = Colors.white70);
+
+    // Center pivot
+    canvas.drawCircle(center, 3, Paint()..color = Colors.white);
+    canvas.drawCircle(center, 1, Paint()..color = Colors.black);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
