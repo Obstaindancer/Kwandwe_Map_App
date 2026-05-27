@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_mbtiles/flutter_map_mbtiles.dart';
 import 'dart:math' as math;
@@ -126,6 +127,83 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             );
       }
     }
+  }
+
+  void _showToolsMenu() {
+    final mapState = ref.read(mapProvider);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF2C2C2C).withValues(alpha: 0.8),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white38,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ListTile(
+                  leading: const Icon(Icons.straighten, color: Colors.orangeAccent),
+                  title: const Text('Measure Distance', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  subtitle: const Text('Tap on the map to measure distances', style: TextStyle(color: Colors.white54)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ref.read(mapProvider.notifier).toggleMeasuring();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    mapState.isRecordingDrive ? Icons.stop : Icons.directions_walk,
+                    color: mapState.isRecordingDrive ? Colors.red : Colors.green.shade400,
+                  ),
+                  title: Text(mapState.isRecordingDrive ? 'Stop Tracking' : 'Track Drive/Walk', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                  subtitle: const Text('Record your path on the map', style: TextStyle(color: Colors.white54)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ref.read(mapProvider.notifier).toggleDriveRecording();
+                  },
+                ),
+                if (mapState.driveTrack.isNotEmpty && !mapState.isRecordingDrive)
+                  ListTile(
+                    leading: Icon(Icons.delete_sweep, color: Colors.red.shade400),
+                    title: const Text('Clear Track', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    subtitle: const Text('Remove the recorded path from the map', style: TextStyle(color: Colors.white54)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      ref.read(mapProvider.notifier).clearDriveTrack();
+                    },
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.gps_fixed, color: Colors.blueAccent),
+                  title: const Text('Go to Coordinates', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  subtitle: const Text('Jump to a specific latitude and longitude', style: TextStyle(color: Colors.white54)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openCoordinateSheet();
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _centreOnGps() {
@@ -625,10 +703,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ? '${(meters / 1000).toStringAsFixed(1)} km'
                       : '${meters.toStringAsFixed(0)} m';
 
-                  return Card(
-                    color: const Color(0xFF2C2C2C),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C2C2C).withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                        ),
+                        child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       child: Row(
                         children: [
@@ -679,10 +764,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
 
           // Measurement HUD
           if (mapState.isMeasuring)
@@ -706,10 +793,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ? '${(totalMeters / 1000).toStringAsFixed(2)} km'
                       : '${totalMeters.toStringAsFixed(0)} m';
 
-                  return Card(
-                    color: const Color(0xFF2C2C2C),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C2C2C).withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                        ),
+                        child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       child: Row(
                         children: [
@@ -744,10 +838,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
         ],
       ),
       floatingActionButton: Column(
@@ -757,9 +853,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           if (mapState.currentPosition != null && mapState.currentPosition!.heading > 0) ...[
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Color(0xFF2C2C2C),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C2C2C).withValues(alpha: 0.8),
                 shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8),
+                ],
               ),
               child: Transform.rotate(
                 angle: mapState.currentPosition!.heading * (math.pi / 180),
@@ -771,7 +871,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           FloatingActionButton.small(
             heroTag: 'gps',
             onPressed: _centreOnGps,
-            backgroundColor: const Color(0xFF2C2C2C),
+            backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
+            elevation: 4,
             child: Icon(
               mapState.isTracking
                   ? Icons.my_location
@@ -782,63 +883,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          if (mapState.driveTrack.isNotEmpty && !mapState.isRecordingDrive) ...[
-            SizedBox(
-              height: 44,
-              child: FloatingActionButton.extended(
-                heroTag: 'clear_track',
-                onPressed: () => ref.read(mapProvider.notifier).clearDriveTrack(),
-                icon: const Icon(Icons.delete_sweep, color: Colors.white, size: 20),
-                label: const Text('Clear Track', style: TextStyle(color: Colors.white, fontSize: 13)),
-                backgroundColor: Colors.red.shade800,
-              ),
+          FloatingActionButton.extended(
+            heroTag: 'tools_menu',
+            onPressed: _showToolsMenu,
+            backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
+            elevation: 4,
+            icon: Icon(
+              mapState.isMeasuring || mapState.isRecordingDrive 
+                  ? Icons.build_circle 
+                  : Icons.build, 
+              color: mapState.isMeasuring || mapState.isRecordingDrive 
+                  ? Colors.blueAccent 
+                  : Colors.white
             ),
-            const SizedBox(height: 12),
-          ],
-          SizedBox(
-            height: 44,
-            child: FloatingActionButton.extended(
-              heroTag: 'measure_toggle',
-              onPressed: () => ref.read(mapProvider.notifier).toggleMeasuring(),
-              icon: Icon(
-                mapState.isMeasuring ? Icons.close : Icons.straighten,
-                color: Colors.white,
-                size: 20,
-              ),
-              label: Text(
-                mapState.isMeasuring ? 'Stop Measuring' : 'Measure Distance',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              backgroundColor: mapState.isMeasuring ? Colors.grey.shade700 : Colors.orange.shade700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 44,
-            child: FloatingActionButton.extended(
-              heroTag: 'track_toggle',
-              onPressed: () => ref.read(mapProvider.notifier).toggleDriveRecording(),
-              icon: Icon(
-                mapState.isRecordingDrive ? Icons.stop : Icons.directions_walk,
-                color: Colors.white,
-                size: 20,
-              ),
-              label: Text(
-                mapState.isRecordingDrive ? 'Stop Tracking' : 'Track Drive/Walk',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              backgroundColor: mapState.isRecordingDrive ? Colors.red : Colors.green.shade700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 44,
-            child: FloatingActionButton.extended(
-              heroTag: 'go_to_coords',
-              onPressed: _openCoordinateSheet,
-              icon: const Icon(Icons.gps_fixed, size: 20),
-              label: const Text('Go to Coordinates', style: TextStyle(fontSize: 13)),
-            ),
+            label: const Text('Tools', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
