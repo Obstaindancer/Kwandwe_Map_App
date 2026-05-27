@@ -419,7 +419,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               minZoom: AppConstants.minZoom,
               maxZoom: AppConstants.maxZoom,
               interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                flags: InteractiveFlag.all,
               ),
               cameraConstraint: CameraConstraint.contain(
                 bounds: LatLngBounds(
@@ -563,7 +563,40 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                 ],
               ),
+              
+              // Scale Bar
+              const Scalebar(
+                alignment: Alignment.topRight,
+                padding: EdgeInsets.only(right: 16, top: 72),
+                textStyle: TextStyle(color: Colors.white, fontSize: 12, shadows: [Shadow(color: Colors.black, blurRadius: 2)]),
+                lineColor: Colors.white,
+              ),
             ],
+          ),
+          
+          // North Arrow
+          Positioned(
+            top: 16,
+            right: 16,
+            child: StreamBuilder<MapEvent>(
+              stream: _mapController.mapEventStream,
+              builder: (context, snapshot) {
+                final rotation = _mapController.camera.rotation;
+                if (rotation == 0.0) return const SizedBox.shrink();
+                
+                return FloatingActionButton.small(
+                  heroTag: 'north_arrow',
+                  onPressed: () {
+                    _mapController.rotate(0.0);
+                  },
+                  backgroundColor: const Color(0xFF2C2C2C),
+                  child: Transform.rotate(
+                    angle: -rotation * (math.pi / 180),
+                    child: const Icon(Icons.arrow_upward, color: Colors.red),
+                  ),
+                );
+              },
+            ),
           ),
 
 
