@@ -4,6 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/tile_loader_service.dart';
 import '../../models/pin_model.dart';
+import '../../models/weather_model.dart';
+import '../../core/weather_service.dart';
 
 enum TileLoadStatus { idle, loading, ready, error }
 
@@ -19,6 +21,7 @@ class MapState {
   final bool isRecordingDrive;
   final bool isMeasuring;
   final List<LatLng> measurePoints;
+  final WeatherModel? weather;
 
   const MapState({
     this.currentPosition,
@@ -32,6 +35,7 @@ class MapState {
     this.isRecordingDrive = false,
     this.isMeasuring = false,
     this.measurePoints = const [],
+    this.weather,
   });
 
   MapState copyWith({
@@ -46,6 +50,7 @@ class MapState {
     bool? isRecordingDrive,
     bool? isMeasuring,
     List<LatLng>? measurePoints,
+    WeatherModel? weather,
   }) {
     return MapState(
       currentPosition: currentPosition ?? this.currentPosition,
@@ -59,6 +64,7 @@ class MapState {
       isRecordingDrive: isRecordingDrive ?? this.isRecordingDrive,
       isMeasuring: isMeasuring ?? this.isMeasuring,
       measurePoints: measurePoints ?? this.measurePoints,
+      weather: weather ?? this.weather,
     );
   }
 
@@ -75,6 +81,7 @@ class MapState {
       isRecordingDrive: isRecordingDrive,
       isMeasuring: isMeasuring,
       measurePoints: measurePoints,
+      weather: weather,
     );
   }
 }
@@ -127,7 +134,7 @@ class MapNotifier extends Notifier<MapState> {
         accuracy: LocationAccuracy.best,
         distanceFilter: 5,
       ),
-    ).listen((position) {
+    ).listen((position) async {
       final newPos = LatLng(position.latitude, position.longitude);
       List<LatLng> newTrack = state.driveTrack;
 
@@ -139,6 +146,14 @@ class MapNotifier extends Notifier<MapState> {
         currentPosition: position,
         driveTrack: newTrack,
       );
+
+      // Fetch weather if we haven't yet
+      if (state.weather == null) {
+        final weather = await WeatherService.fetchWeather(position.latitude, position.longitude);
+        if (weather != null) {
+          state = state.copyWith(weather: weather);
+        }
+      }
     });
   }
 

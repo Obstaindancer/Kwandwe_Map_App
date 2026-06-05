@@ -13,7 +13,10 @@ import '../coordinates/coordinate_input_sheet.dart';
 import '../pins/pin_selection_sheet.dart';
 import '../pins/pins_provider.dart';
 import 'map_provider.dart';
-
+import 'widgets/navigation_hud.dart';
+import 'widgets/measurement_hud.dart';
+import 'widgets/tools_menu_sheet.dart';
+import 'widgets/weather_dashboard.dart';
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -24,6 +27,20 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
   bool _isRotationLocked = true;
+  bool _showWeather = false;
+
+  List<LatLng> _getScentConePoints(LatLng center, int windDirectionDeg) {
+    double windGoingTo = (windDirectionDeg + 180) % 360;
+    double coneLengthMeters = 500;
+    double coneAngleSpread = 60;
+    
+    const distanceCalc = Distance();
+    LatLng leftEdge = distanceCalc.offset(center, coneLengthMeters, windGoingTo - (coneAngleSpread / 2));
+    LatLng rightEdge = distanceCalc.offset(center, coneLengthMeters, windGoingTo + (coneAngleSpread / 2));
+    
+    return [center, leftEdge, rightEdge];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -130,70 +147,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   void _showToolsMenu() {
-    final mapState = ref.read(mapProvider);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF2C2C2C).withValues(alpha: 0.8),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1)),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white38,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ListTile(
-                  leading: const Icon(Icons.straighten, color: Colors.orangeAccent),
-                  title: const Text('Measure Distance', style: TextStyle(color: Colors.white, fontSize: 16)),
-                  subtitle: const Text('Tap on the map to measure distances', style: TextStyle(color: Colors.white54)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    ref.read(mapProvider.notifier).toggleMeasuring();
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    mapState.isRecordingDrive ? Icons.stop : Icons.directions_walk,
-                    color: mapState.isRecordingDrive ? Colors.red : Colors.green.shade400,
-                  ),
-                  title: Text(mapState.isRecordingDrive ? 'Stop Tracking' : 'Track Drive/Walk', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                  subtitle: const Text('Record your path on the map', style: TextStyle(color: Colors.white54)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    ref.read(mapProvider.notifier).toggleDriveRecording();
-                  },
-                ),
-                if (mapState.driveTrack.isNotEmpty && !mapState.isRecordingDrive)
-                  ListTile(
-                    leading: Icon(Icons.delete_sweep, color: Colors.red.shade400),
-                    title: const Text('Clear Track', style: TextStyle(color: Colors.white, fontSize: 16)),
-                    subtitle: const Text('Remove the recorded path from the map', style: TextStyle(color: Colors.white54)),
-                    onTap: () {
-                      Navigator.pop(context);
-                      ref.read(mapProvider.notifier).clearDriveTrack();
-                    },
-                  ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ),
-      ),
+      builder: (_) => const ToolsMenuSheet(),
     );
   }
 
@@ -304,12 +262,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         '${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  String _getBearingString(double bearing) {
-    if (bearing < 0) bearing += 360;
-    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-    final index = ((bearing + 22.5) % 360) / 45;
-    return directions[index.floor()];
-  }
+
 
   // ── Loading screen shown only on first launch while tile extracts ─────────
   Widget _buildLoadingScreen(double progress) {
@@ -565,6 +518,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
 
 
+              // Wind Scent Cone
+              if (_showWeather && mapState.weather != null && mapState.currentPosition != null)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: _getScentConePoints(
+                        LatLng(mapState.currentPosition!.latitude, mapState.currentPosition!.longitude),
+                        mapState.weather!.windDirection,
+                      ),
+                      color: Colors.blueAccent.withValues(alpha: 0.15),
+                      borderColor: Colors.blueAccent.withValues(alpha: 0.5),
+                      borderStrokeWidth: 1.0,
+                    ),
+                  ],
+                ),
+
               // Markers layer
               MarkerLayer(
                 markers: [
@@ -634,10 +603,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
               
               // Scale Bar
-              const Scalebar(
+              Scalebar(
                 alignment: Alignment.bottomLeft,
-                padding: EdgeInsets.only(left: 16, bottom: 24),
-                textStyle: TextStyle(
+                padding: EdgeInsets.only(left: 16, bottom: 24 + MediaQuery.of(context).padding.bottom),
+                textStyle: const TextStyle(
                   color: Colors.white, 
                   fontSize: 13, 
                   fontWeight: FontWeight.w600,
@@ -647,260 +616,135 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ],
           ),
-          
-          // North Arrow
-          Positioned(
-            top: 16,
-            right: 16,
-            child: StreamBuilder<MapEvent>(
-              stream: _mapController.mapEventStream,
-              builder: (context, snapshot) {
-                final rotation = _mapController.camera.rotation;
-                
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (_isRotationLocked) {
-                        _isRotationLocked = false;
-                      } else {
-                        _mapController.rotate(0.0);
-                        _isRotationLocked = true;
-                      }
-                    });
-                  },
-                  child: ClipOval(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2C2C2C).withValues(alpha: 0.8),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4),
-                          ],
-                        ),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          alignment: Alignment.center,
-                          children: [
-                            Transform.rotate(
-                              angle: -rotation * (math.pi / 180),
-                              child: CustomPaint(
-                                size: const Size(14, 28),
-                                painter: CompassNeedlePainter(),
+          // Safe Area for Overlays
+          SafeArea(
+            child: Stack(
+              children: [
+                // North Arrow
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: StreamBuilder<MapEvent>(
+                    stream: _mapController.mapEventStream,
+                    builder: (context, snapshot) {
+                      final rotation = _mapController.camera.rotation;
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (_isRotationLocked) {
+                              _isRotationLocked = false;
+                            } else {
+                              _mapController.rotate(0.0);
+                              _isRotationLocked = true;
+                            }
+                          });
+                        },
+                        child: ClipOval(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2C2C2C).withValues(alpha: 0.8),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4),
+                                ],
+                              ),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                alignment: Alignment.center,
+                                children: [
+                                  Transform.rotate(
+                                    angle: -rotation * (math.pi / 180),
+                                    child: CustomPaint(
+                                      size: const Size(14, 28),
+                                      painter: CompassNeedlePainter(),
+                                    ),
+                                  ),
+                                  if (_isRotationLocked)
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black87,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white24, width: 1),
+                                        ),
+                                        child: const Icon(Icons.lock, color: Colors.white, size: 10),
+                                      ),
+                                    )
+                                  else
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black87,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white24, width: 1),
+                                        ),
+                                        child: const Icon(Icons.lock_open, color: Colors.white70, size: 10),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                            if (_isRotationLocked)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black87,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white24, width: 1),
-                                  ),
-                                  child: const Icon(Icons.lock, color: Colors.white, size: 10),
-                                ),
-                              )
-                            else
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black87,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white24, width: 1),
-                                  ),
-                                  child: const Icon(Icons.lock_open, color: Colors.white70, size: 10),
-                                ),
-                              ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+
+                // HUD Overlays
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  right: 16,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.0, -0.2),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: mapState.isMeasuring 
+                            ? const MeasurementHUD(key: ValueKey('MeasurementHUD'))
+                            : (mapState.activeNavPin != null && mapState.currentPosition != null)
+                                ? const NavigationHUD(key: ValueKey('NavigationHUD'))
+                                : const SizedBox.shrink(key: ValueKey('EmptyHUD')),
+                      ),
+                      if (_showWeather) ...[
+                        const SizedBox(height: 16),
+                        const WeatherDashboard(),
+                      ]
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-
-
-
-
-
-          // Navigation HUD
-          if (mapState.activeNavPin != null && mapState.currentPosition != null)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Builder(
-                builder: (context) {
-                  final currentPos = LatLng(
-                    mapState.currentPosition!.latitude,
-                    mapState.currentPosition!.longitude,
-                  );
-                  final targetPos = mapState.activeNavPin!.position;
-                  const distanceCalc = Distance();
-                  final meters = distanceCalc.as(LengthUnit.Meter, currentPos, targetPos);
-                  final bearingDeg = distanceCalc.bearing(currentPos, targetPos);
-                  final bearingStr = _getBearingString(bearingDeg);
-                  
-                  final distStr = meters > 1000
-                      ? '${(meters / 1000).toStringAsFixed(1)} km'
-                      : '${meters.toStringAsFixed(0)} m';
-
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2C2C2C).withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
-                        ),
-                        child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          Icon(Icons.navigation, color: mapState.activeNavPin!.colour, size: 28),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  mapState.activeNavPin!.label,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Text(
-                                      distStr,
-                                      style: const TextStyle(
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Bearing: $bearingStr',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white54),
-                            onPressed: () => ref.read(mapProvider.notifier).stopNavigation(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-
-          // Measurement HUD
-          if (mapState.isMeasuring)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Builder(
-                builder: (context) {
-                  double totalMeters = 0;
-                  const distanceCalc = Distance();
-                  for (int i = 0; i < mapState.measurePoints.length - 1; i++) {
-                    totalMeters += distanceCalc.as(
-                      LengthUnit.Meter,
-                      mapState.measurePoints[i],
-                      mapState.measurePoints[i + 1],
-                    );
-                  }
-                  
-                  final distStr = totalMeters > 1000
-                      ? '${(totalMeters / 1000).toStringAsFixed(2)} km'
-                      : '${totalMeters.toStringAsFixed(0)} m';
-
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2C2C2C).withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
-                        ),
-                        child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.straighten, color: Colors.orangeAccent, size: 28),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Measurement Mode',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Distance: $distStr',
-                                  style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.undo, color: Colors.white54),
-                            onPressed: mapState.measurePoints.isNotEmpty
-                                ? () => ref.read(mapProvider.notifier).clearMeasurePoints()
-                                : null,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white54),
-                            onPressed: () => ref.read(mapProvider.notifier).toggleMeasuring(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
         ],
       ),
-      floatingActionButton: Column(
+      floatingActionButton: SafeArea(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -922,6 +766,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             const SizedBox(height: 12),
           ],
+          FloatingActionButton.small(
+            heroTag: 'weather_toggle',
+            onPressed: () {
+              setState(() {
+                _showWeather = !_showWeather;
+              });
+            },
+            backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
+            elevation: 4,
+            child: Icon(
+              _showWeather ? Icons.cloud_off : Icons.cloud,
+              color: _showWeather ? Colors.blue : Colors.white54,
+            ),
+          ),
+          const SizedBox(height: 12),
           FloatingActionButton.small(
             heroTag: 'gps',
             onPressed: _centreOnGps,
@@ -962,7 +821,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             label: const Text('Coordinates', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ],
-      ),
+      )),
     );
   }
 }
