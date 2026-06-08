@@ -68,6 +68,26 @@ class ToolsMenuSheet extends ConsumerWidget {
                 },
               ),
             const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.file_upload, color: Colors.blueAccent),
+              title: const Text('Import GPX Track', style: TextStyle(color: Colors.white, fontSize: 16)),
+              subtitle: const Text('Load external tracks onto the map', style: TextStyle(color: Colors.white54)),
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(mapProvider.notifier).importGpxFile();
+              },
+            ),
+            if (mapState.importedTracks.isNotEmpty)
+              ListTile(
+                leading: Icon(Icons.layers_clear, color: Colors.orangeAccent.shade400),
+                title: const Text('Clear Imported Tracks', style: TextStyle(color: Colors.white, fontSize: 16)),
+                subtitle: const Text('Remove all imported GPX tracks', style: TextStyle(color: Colors.white54)),
+                onTap: () {
+                  Navigator.pop(context);
+                  ref.read(mapProvider.notifier).clearImportedTracks();
+                },
+              ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

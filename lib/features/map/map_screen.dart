@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:flutter_map_mbtiles/flutter_map_mbtiles.dart';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,9 @@ import 'widgets/navigation_hud.dart';
 import 'widgets/measurement_hud.dart';
 import 'widgets/tools_menu_sheet.dart';
 import 'widgets/weather_dashboard.dart';
+import '../tracking/tracking_dashboard_screen.dart';
+import '../../providers/tracking_provider.dart';
+
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -28,6 +33,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
   bool _isRotationLocked = true;
   bool _showWeather = false;
+  StreamSubscription? _intentDataStreamSubscription;
 
   List<LatLng> _getScentConePoints(LatLng center, int windDirectionDeg) {
     double windGoingTo = (windDirectionDeg + 180) % 360;
@@ -45,6 +51,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void initState() {
     super.initState();
     _requestLocationPermission();
+
+    // Listen to media sharing incoming files when the app is in memory
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
+      if (value.isNotEmpty) {
+        _handleSharedFiles(value);
+      }
+    }, onError: (err) {
+      debugPrint("getIntentDataStream error: $err");
+    });
+
+    // Get the media sharing incoming files when the app is closed
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+      if (value.isNotEmpty) {
+        _handleSharedFiles(value);
+      }
+      ReceiveSharingIntent.instance.reset();
+    });
+  }
+
+  void _handleSharedFiles(List<SharedMediaFile> files) {
+    for (var file in files) {
+      if (file.path.toLowerCase().endsWith('.gpx')) {
+        ref.read(mapProvider.notifier).handleSharedGpxFile(file.path);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Imported GPX: ${file.path.split('/').last}')));
+      }
+    }
   }
 
   Future<void> _requestLocationPermission() async {
@@ -81,6 +113,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
 
     ref.read(mapProvider.notifier).startTracking();
+  }
+
+  @override
+  void dispose() {
+    _intentDataStreamSubscription?.cancel();
+    super.dispose();
   }
 
   void _onTap(TapPosition tapPosition, LatLng point) {
@@ -374,6 +412,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
     final pins = ref.watch(pinsProvider);
+    final trackingState = ref.watch(trackingProvider);
 
     // Show loading screen on first launch tile extraction
     if (mapState.tileStatus == TileLoadStatus.loading) {
@@ -493,6 +532,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ],
                 ),
 
+              // Active Background Track
+              if (trackingState.currentPoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: <Polyline<Object>>[
+                    Polyline<Object>(
+                      points: trackingState.currentPoints
+                          .map((p) => LatLng(p.latitude, p.longitude))
+                          .toList(),
+                      color: Colors.cyanAccent.withOpacity(0.8),
+                      strokeWidth: 4.0,
+                    ),
+                  ],
+                ),
+
               // Route Tracing (Drive Track)
               if (mapState.driveTrack.isNotEmpty)
                 PolylineLayer(
@@ -503,6 +556,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       strokeWidth: 5.0,
                     ),
                   ],
+                ),
+
+              // Imported Tracks
+              if (mapState.importedTracks.isNotEmpty)
+                PolylineLayer(
+                  polylines: mapState.importedTracks.map((track) {
+                    return Polyline<Object>(
+                      points: track.points,
+                      color: track.color,
+                      strokeWidth: 4.0,
+                    );
+                  }).toList(),
                 ),
 
               // Distance Measurement Tool
@@ -810,6 +875,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   : Colors.white
             ),
             label: const Text('Tools', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'tracking_dashboard',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TrackingDashboardScreen()));
+            },
+            backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
+            elevation: 4,
+            icon: Icon(
+              trackingState.status != TrackingStatus.stopped 
+                  ? Icons.track_changes 
+                  : Icons.directions_walk,
+              color: trackingState.status == TrackingStatus.recording
+                  ? Colors.greenAccent
+                  : trackingState.status == TrackingStatus.paused
+                      ? Colors.orangeAccent
+                      : Colors.white,
+            ),
+            label: const Text('Tracker', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 12),
           FloatingActionButton.extended(
