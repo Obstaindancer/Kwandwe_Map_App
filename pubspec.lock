@@ -585,7 +585,7 @@ packages:
     source: hosted
     version: "1.17.0"
   mgrs_dart:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: mgrs_dart
       sha256: "385e7168ecc77eb545220223c49eef8ab249da7bf57f22781c40a04d23fb196f"

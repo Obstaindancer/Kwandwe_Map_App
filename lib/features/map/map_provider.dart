@@ -44,6 +44,8 @@ class MapState {
   final List<LatLng> measurePoints;
   final WeatherModel? weather;
   final List<MapTrack> importedTracks;
+  final bool useGlobalSatellite;
+  final bool isFollowMe;
 
   const MapState({
     this.currentPosition,
@@ -59,6 +61,8 @@ class MapState {
     this.measurePoints = const [],
     this.weather,
     this.importedTracks = const [],
+    this.useGlobalSatellite = false,
+    this.isFollowMe = false,
   });
 
   MapState copyWith({
@@ -75,6 +79,8 @@ class MapState {
     List<LatLng>? measurePoints,
     WeatherModel? weather,
     List<MapTrack>? importedTracks,
+    bool? useGlobalSatellite,
+    bool? isFollowMe,
   }) {
     return MapState(
       currentPosition: currentPosition ?? this.currentPosition,
@@ -82,7 +88,7 @@ class MapState {
       tileStatus: tileStatus ?? this.tileStatus,
       tileLoadProgress: tileLoadProgress ?? this.tileLoadProgress,
       tilePath: tilePath ?? this.tilePath,
-      tileError: tileError,
+      tileError: tileError ?? this.tileError,
       activeNavPin: activeNavPin ?? this.activeNavPin,
       driveTrack: driveTrack ?? this.driveTrack,
       isRecordingDrive: isRecordingDrive ?? this.isRecordingDrive,
@@ -90,6 +96,8 @@ class MapState {
       measurePoints: measurePoints ?? this.measurePoints,
       weather: weather ?? this.weather,
       importedTracks: importedTracks ?? this.importedTracks,
+      useGlobalSatellite: useGlobalSatellite ?? this.useGlobalSatellite,
+      isFollowMe: isFollowMe ?? this.isFollowMe,
     );
   }
 
@@ -108,6 +116,8 @@ class MapState {
       measurePoints: measurePoints,
       weather: weather,
       importedTracks: importedTracks,
+      useGlobalSatellite: useGlobalSatellite,
+      isFollowMe: isFollowMe,
     );
   }
 }
@@ -218,8 +228,29 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void undoMeasurePoint() {
+    if (state.measurePoints.isNotEmpty) {
+      final newPoints = List<LatLng>.from(state.measurePoints)..removeLast();
+      state = state.copyWith(measurePoints: newPoints);
+    }
+  }
+
   void clearMeasurePoints() {
     state = state.copyWith(measurePoints: []);
+  }
+
+  void toggleGlobalSatellite() {
+    state = state.copyWith(useGlobalSatellite: !state.useGlobalSatellite);
+  }
+
+  void toggleFollowMe() {
+    state = state.copyWith(isFollowMe: !state.isFollowMe);
+  }
+
+  void setFollowMe(bool value) {
+    if (state.isFollowMe != value) {
+      state = state.copyWith(isFollowMe: value);
+    }
   }
 
   void addImportedTrack(MapTrack track) {

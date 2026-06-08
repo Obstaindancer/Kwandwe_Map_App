@@ -1,4 +1,5 @@
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart';
 
 /// Parses GPS coordinate strings from rhino collar alerts and manual entry.
 /// Supports:
@@ -22,6 +23,28 @@ class CoordinateParser {
     final ddmResult = _tryDDM(cleaned);
     if (ddmResult != null) return ddmResult;
 
+    // Try MGRS
+    final mgrsResult = _tryMGRS(cleaned);
+    if (mgrsResult != null) return mgrsResult;
+
+    return null;
+  }
+
+  // ── MGRS (Military Grid Reference System) ─────────────────────────────────
+  // Handles strings like: 35H LC 1234 5678 or 35HLC12345678
+  static LatLng? _tryMGRS(String input) {
+    try {
+      final cleaned = input.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+      if (cleaned.length >= 5 && RegExp(r'^\d{1,2}[C-X][A-Z]{2}\d+$').hasMatch(cleaned)) {
+        final point = Mgrs.toPoint(cleaned);
+        // point is [longitude, latitude]
+        if (_validLatLng(point[1], point[0])) {
+          return LatLng(point[1], point[0]);
+        }
+      }
+    } catch (e) {
+      // Return null on failure
+    }
     return null;
   }
 
@@ -129,10 +152,18 @@ class CoordinateParser {
 
   /// Formats a LatLng back to a clean readable string for display.
   static String format(double lat, double lng) {
-    final latStr =
-        '${lat.abs().toStringAsFixed(6)}°${lat >= 0 ? 'N' : 'S'}';
-    final lngStr =
-        '${lng.abs().toStringAsFixed(6)}°${lng >= 0 ? 'E' : 'W'}';
-    return '$latStr  $lngStr';
+    final latStr = '${lat.abs().toStringAsFixed(5)}°${lat >= 0 ? 'N' : 'S'}';
+    final lngStr = '${lng.abs().toStringAsFixed(5)}°${lng >= 0 ? 'E' : 'W'}';
+    
+    String mgrsStr = '';
+    try {
+      mgrsStr = Mgrs.forward([lng, lat], 5);
+      // Format 35HLC1234567890 to 35H LC 12345 67890
+      if (mgrsStr.length == 15) {
+        mgrsStr = '${mgrsStr.substring(0, 3)} ${mgrsStr.substring(3, 5)} ${mgrsStr.substring(5, 10)} ${mgrsStr.substring(10)}';
+      }
+    } catch (_) {}
+
+    return '$latStr  $lngStr${mgrsStr.isNotEmpty ? '\nMGRS: $mgrsStr' : ''}';
   }
 }

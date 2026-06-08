@@ -45,7 +45,39 @@ class ToolsMenuSheet extends ConsumerWidget {
                 ref.read(mapProvider.notifier).toggleMeasuring();
               },
             ),
-
+            ListTile(
+              leading: Icon(
+                mapState.useGlobalSatellite ? Icons.satellite_alt : Icons.map,
+                color: mapState.useGlobalSatellite ? Colors.greenAccent : Colors.tealAccent,
+              ),
+              title: Text(
+                mapState.useGlobalSatellite ? 'Use Offline Kwandwe Map' : 'Use Global Satellite View', 
+                style: const TextStyle(color: Colors.white, fontSize: 16)
+              ),
+              subtitle: Text(
+                mapState.useGlobalSatellite ? 'Switch back to the local offline map' : 'Requires internet connection', 
+                style: const TextStyle(color: Colors.white54)
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(mapProvider.notifier).toggleGlobalSatellite();
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                mapState.isFollowMe ? Icons.explore : Icons.explore_off,
+                color: mapState.isFollowMe ? Colors.greenAccent : Colors.white54,
+              ),
+              title: Text(
+                mapState.isFollowMe ? 'Stop Follow Me' : 'Start Follow Me', 
+                style: const TextStyle(color: Colors.white, fontSize: 16)
+              ),
+              subtitle: const Text('Lock the camera to your GPS location', style: TextStyle(color: Colors.white54)),
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(mapProvider.notifier).toggleFollowMe();
+              },
+            ),
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.file_upload, color: Colors.blueAccent),

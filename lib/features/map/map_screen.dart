@@ -222,7 +222,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (position != null) {
       _mapController.move(
         LatLng(position.latitude, position.longitude),
-        15.0,
+        _mapController.camera.zoom < 15.0 ? 15.0 : _mapController.camera.zoom,
       );
     }
   }
@@ -434,6 +434,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen for transitions from Global Satellite to Offline Map to reset camera
+    ref.listen<bool>(
+      mapProvider.select((state) => state.useGlobalSatellite),
+      (previous, current) {
+        if (previous == true && current == false) {
+          _mapController.move(
+            const LatLng(AppConstants.reserveLat, AppConstants.reserveLng),
+            AppConstants.initialZoom,
+          );
+        }
+      },
+    );
+
+    // Follow Me: automatically move camera when position updates
+    ref.listen<Position?>(
+      mapProvider.select((state) => state.currentPosition),
+      (previous, current) {
+        final state = ref.read(mapProvider);
+        if (state.isFollowMe && current != null) {
+          _mapController.move(
+            LatLng(current.latitude, current.longitude),
+            _mapController.camera.zoom, // keep current zoom level
+          );
+        }
+      },
+    );
+
     final mapState = ref.watch(mapProvider);
     final pins = ref.watch(pinsProvider);
     final trackingState = ref.watch(trackingProvider);
@@ -501,24 +528,39 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 AppConstants.reserveLng,
               ),
               initialZoom: AppConstants.initialZoom,
-              minZoom: AppConstants.minZoom,
+              minZoom: mapState.useGlobalSatellite ? 2.0 : AppConstants.minZoom,
               maxZoom: AppConstants.maxZoom,
               interactionOptions: InteractionOptions(
                 flags: InteractiveFlag.all & ~(_isRotationLocked ? InteractiveFlag.rotate : InteractiveFlag.none),
               ),
-              cameraConstraint: CameraConstraint.contain(
-                bounds: LatLngBounds(
-                  const LatLng(AppConstants.boundsSouthWestLat, AppConstants.boundsSouthWestLng),
-                  const LatLng(AppConstants.boundsNorthEastLat, AppConstants.boundsNorthEastLng),
-                ),
-              ),
+              cameraConstraint: mapState.useGlobalSatellite
+                  ? const CameraConstraint.unconstrained()
+                  : CameraConstraint.contain(
+                      bounds: LatLngBounds(
+                        const LatLng(AppConstants.boundsSouthWestLat, AppConstants.boundsSouthWestLng),
+                        const LatLng(AppConstants.boundsNorthEastLat, AppConstants.boundsNorthEastLng),
+                      ),
+                    ),
               onTap: _onTap,
               onLongPress: _onLongPress,
+              onPositionChanged: (MapCamera position, bool hasGesture) {
+                if (hasGesture && mapState.isFollowMe) {
+                  // User manually panned the map, so break "Follow Me" mode
+                  ref.read(mapProvider.notifier).setFollowMe(false);
+                }
+              },
             ),
             children: [
-              // Kwandwe MBTiles base layer — bundled in APK
+              // Map Base Layer (Always render offline layer to maintain database connection)
               if (mapState.tilePath != null)
                 MbTilesLayer(mbTilesPath: mapState.tilePath!),
+
+              // Global Satellite Overlay (Rendered on top of offline map)
+              if (mapState.useGlobalSatellite)
+                TileLayer(
+                  urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  userAgentPackageName: 'za.co.kwandwe.kwandwe_map',
+                ),
 
               // GPS accuracy circle
               if (mapState.currentPosition != null)
@@ -597,17 +639,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
 
               // Distance Measurement Tool
-              if (mapState.isMeasuring && mapState.measurePoints.isNotEmpty)
+              if (mapState.isMeasuring && mapState.measurePoints.isNotEmpty) ...[
                 PolylineLayer(
                   polylines: <Polyline<Object>>[
                     Polyline<Object>(
                       points: mapState.measurePoints,
                       color: Colors.orangeAccent,
                       strokeWidth: 4.0,
+                      pattern: StrokePattern.dashed(segments: const [10.0, 10.0]),
                     ),
                   ],
                 ),
-
+                CircleLayer(
+                  circles: mapState.measurePoints.map((p) => CircleMarker(
+                    point: p,
+                    color: Colors.white,
+                    borderColor: Colors.orangeAccent,
+                    borderStrokeWidth: 2,
+                    radius: 5,
+                  )).toList(),
+                ),
+              ],
 
               // Wind Scent Cone
               if (_showWeather && mapState.weather != null && mapState.currentPosition != null)
@@ -878,12 +930,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
             elevation: 4,
             child: Icon(
-              mapState.isTracking
-                  ? Icons.my_location
-                  : Icons.location_searching,
-              color: mapState.isTracking
-                  ? Colors.blue
-                  : Colors.white54,
+              mapState.isFollowMe
+                  ? Icons.explore
+                  : (mapState.isTracking ? Icons.my_location : Icons.location_searching),
+              color: mapState.isFollowMe
+                  ? Colors.greenAccent
+                  : (mapState.isTracking ? Colors.blue : Colors.white54),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.small(
+            heroTag: 'rotation_lock',
+            onPressed: () {
+              setState(() {
+                _isRotationLocked = !_isRotationLocked;
+              });
+              if (_isRotationLocked) {
+                // Reset rotation to North when locked
+                _mapController.rotate(0.0);
+              }
+            },
+            backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
+            elevation: 4,
+            child: Icon(
+              _isRotationLocked ? Icons.navigation : Icons.explore_off,
+              color: _isRotationLocked ? Colors.redAccent : Colors.white54,
             ),
           ),
           const SizedBox(height: 12),
