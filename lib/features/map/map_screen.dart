@@ -938,25 +938,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   : (mapState.isTracking ? Colors.blue : Colors.white54),
             ),
           ),
-          const SizedBox(height: 12),
-          FloatingActionButton.small(
-            heroTag: 'rotation_lock',
-            onPressed: () {
-              setState(() {
-                _isRotationLocked = !_isRotationLocked;
-              });
-              if (_isRotationLocked) {
-                // Reset rotation to North when locked
-                _mapController.rotate(0.0);
-              }
-            },
-            backgroundColor: const Color(0xFF2C2C2C).withValues(alpha: 0.9),
-            elevation: 4,
-            child: Icon(
-              _isRotationLocked ? Icons.navigation : Icons.explore_off,
-              color: _isRotationLocked ? Colors.redAccent : Colors.white54,
-            ),
-          ),
+
           const SizedBox(height: 12),
           FloatingActionButton.extended(
             heroTag: 'tools_menu',
