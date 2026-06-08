@@ -45,28 +45,7 @@ class ToolsMenuSheet extends ConsumerWidget {
                 ref.read(mapProvider.notifier).toggleMeasuring();
               },
             ),
-            ListTile(
-              leading: Icon(
-                mapState.isRecordingDrive ? Icons.stop : Icons.directions_walk,
-                color: mapState.isRecordingDrive ? Colors.red : Colors.green.shade400,
-              ),
-              title: Text(mapState.isRecordingDrive ? 'Stop Tracking' : 'Track Drive/Walk', style: const TextStyle(color: Colors.white, fontSize: 16)),
-              subtitle: const Text('Record your path on the map', style: TextStyle(color: Colors.white54)),
-              onTap: () {
-                Navigator.pop(context);
-                ref.read(mapProvider.notifier).toggleDriveRecording();
-              },
-            ),
-            if (mapState.driveTrack.isNotEmpty && !mapState.isRecordingDrive)
-              ListTile(
-                leading: Icon(Icons.delete_sweep, color: Colors.red.shade400),
-                title: const Text('Clear Track', style: TextStyle(color: Colors.white, fontSize: 16)),
-                subtitle: const Text('Remove the recorded path from the map', style: TextStyle(color: Colors.white54)),
-                onTap: () {
-                  Navigator.pop(context);
-                  ref.read(mapProvider.notifier).clearDriveTrack();
-                },
-              ),
+
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.file_upload, color: Colors.blueAccent),

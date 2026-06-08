@@ -3,7 +3,8 @@ import 'package:uuid/uuid.dart';
 enum ActivityType {
   patrol('Patrol'),
   walk('Nature Walk'),
-  gameDrive('Game Drive');
+  gameDrive('Game Drive'),
+  imported('Imported GPX');
 
   final String displayName;
   const ActivityType(this.displayName);

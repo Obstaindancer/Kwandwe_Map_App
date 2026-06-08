@@ -21,6 +21,8 @@ import 'widgets/tools_menu_sheet.dart';
 import 'widgets/weather_dashboard.dart';
 import '../tracking/tracking_dashboard_screen.dart';
 import '../../providers/tracking_provider.dart';
+import '../../services/tracking_database_service.dart';
+import '../tracking/track_details_screen.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -47,10 +49,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return [center, leftEdge, rightEdge];
   }
 
+  final LayerHitNotifier<MapTrack> _hitNotifier = ValueNotifier(null);
+
   @override
   void initState() {
     super.initState();
     _requestLocationPermission();
+
+    _hitNotifier.addListener(() async {
+      final hit = _hitNotifier.value;
+      if (hit != null && hit.hitValues.isNotEmpty) {
+        final tappedTrack = hit.hitValues.first;
+        await _openTrackDetails(tappedTrack);
+        _hitNotifier.value = null; // Reset
+      }
+    });
 
     // Listen to media sharing incoming files when the app is in memory
     _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
@@ -68,6 +81,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
       ReceiveSharingIntent.instance.reset();
     });
+  }
+
+  Future<void> _openTrackDetails(MapTrack track) async {
+    final session = await TrackingDatabaseService().getTrackSession(track.id);
+    if (session != null && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (ctx) => TrackDetailsScreen(session: session),
+        ),
+      );
+    }
   }
 
   void _handleSharedFiles(List<SharedMediaFile> files) {
@@ -560,12 +584,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
               // Imported Tracks
               if (mapState.importedTracks.isNotEmpty)
-                PolylineLayer(
+                PolylineLayer<MapTrack>(
+                  hitNotifier: _hitNotifier,
                   polylines: mapState.importedTracks.map((track) {
-                    return Polyline<Object>(
+                    return Polyline<MapTrack>(
                       points: track.points,
                       color: track.color,
-                      strokeWidth: 4.0,
+                      strokeWidth: 10.0, // Increased stroke width so it's easier to tap
+                      hitValue: track,
                     );
                   }).toList(),
                 ),

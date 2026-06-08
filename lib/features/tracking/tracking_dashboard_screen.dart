@@ -46,6 +46,7 @@ class _TrackingDashboardScreenState extends ConsumerState<TrackingDashboardScree
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
+            tooltip: 'Tracks',
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TrackHistoryScreen()));
             },
@@ -106,7 +107,9 @@ class _TrackingDashboardScreenState extends ConsumerState<TrackingDashboardScree
               const Text('Activity Type'),
               const SizedBox(height: 8),
               SegmentedButton<ActivityType>(
-                segments: ActivityType.values.map((type) {
+                segments: ActivityType.values
+                    .where((type) => type != ActivityType.imported)
+                    .map((type) {
                   return ButtonSegment<ActivityType>(
                     value: type,
                     label: Text(type.displayName, style: const TextStyle(fontSize: 12)),

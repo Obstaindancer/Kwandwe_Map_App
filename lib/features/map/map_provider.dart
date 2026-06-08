@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart' hide ActivityType;
 import 'package:latlong2/latlong.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:gpx/gpx.dart';
@@ -11,6 +11,8 @@ import '../../core/tile_loader_service.dart';
 import '../../models/pin_model.dart';
 import '../../models/weather_model.dart';
 import '../../core/weather_service.dart';
+import '../../models/tracking_model.dart';
+import '../../services/tracking_database_service.dart';
 
 enum TileLoadStatus { idle, loading, ready, error }
 
@@ -267,9 +269,35 @@ class MapNotifier extends Notifier<MapState> {
         }
 
         if (points.isNotEmpty) {
+          final trackId = const Uuid().v4();
+          final trackName = result.files.single.name;
+
+          // Save to Database
+          final session = TrackSession(
+            id: trackId,
+            name: trackName,
+            activityType: ActivityType.imported,
+            startTime: DateTime.now(),
+            endTime: DateTime.now(),
+            distanceMeters: 0,
+            durationSeconds: 0,
+          );
+          await TrackingDatabaseService().insertTrackSession(session);
+
+          for (final p in points) {
+            await TrackingDatabaseService().insertTrackPoint(TrackPoint(
+              trackId: trackId,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              altitude: 0.0,
+              speed: 0.0,
+              timestamp: DateTime.now(),
+            ));
+          }
+
           final track = MapTrack(
-            id: const Uuid().v4(),
-            name: result.files.single.name,
+            id: trackId,
+            name: trackName,
             points: points,
             color: Colors.orangeAccent,
           );
@@ -306,15 +334,41 @@ class MapNotifier extends Notifier<MapState> {
         }
       }
 
-      if (points.isNotEmpty) {
-        final track = MapTrack(
-          id: const Uuid().v4(),
-          name: file.path.split('/').last,
-          points: points,
-          color: Colors.orangeAccent,
-        );
-        addImportedTrack(track);
-      }
+        if (points.isNotEmpty) {
+          final trackId = const Uuid().v4();
+          final trackName = file.path.split('/').last;
+
+          // Save to Database
+          final session = TrackSession(
+            id: trackId,
+            name: trackName,
+            activityType: ActivityType.imported,
+            startTime: DateTime.now(),
+            endTime: DateTime.now(),
+            distanceMeters: 0,
+            durationSeconds: 0,
+          );
+          await TrackingDatabaseService().insertTrackSession(session);
+
+          for (final p in points) {
+            await TrackingDatabaseService().insertTrackPoint(TrackPoint(
+              trackId: trackId,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              altitude: 0.0,
+              speed: 0.0,
+              timestamp: DateTime.now(),
+            ));
+          }
+
+          final track = MapTrack(
+            id: trackId,
+            name: trackName,
+            points: points,
+            color: Colors.orangeAccent,
+          );
+          addImportedTrack(track);
+        }
     } catch (e) {
       debugPrint('Error parsing shared GPX: $e');
     }
