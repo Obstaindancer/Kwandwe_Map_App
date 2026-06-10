@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart' hide ActivityType;
 import 'package:latlong2/latlong.dart';
@@ -137,6 +138,18 @@ class MapNotifier extends Notifier<MapState> {
       tileStatus: TileLoadStatus.loading,
       tileLoadProgress: 0.0,
     );
+
+    if (kIsWeb) {
+      // On the web, we cannot extract MBTiles (no file system, no SQLite).
+      // We will skip this and default to the global satellite layer.
+      state = state.copyWith(
+        tileStatus: TileLoadStatus.ready,
+        tilePath: null,
+        tileLoadProgress: 1.0,
+        useGlobalSatellite: true, // Force satellite on web
+      );
+      return;
+    }
 
     try {
       final path = await TileLoaderService.getOrExtractTilePath(

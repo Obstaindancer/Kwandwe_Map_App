@@ -1,5 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:flutter/foundation.dart';
 import '../models/tracking_model.dart';
 
 class TrackingDatabaseService {
@@ -10,6 +11,9 @@ class TrackingDatabaseService {
   Database? _database;
 
   Future<Database> get database async {
+    if (kIsWeb) {
+      throw UnsupportedError('sqflite is not supported on the web');
+    }
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
@@ -59,6 +63,7 @@ class TrackingDatabaseService {
   // --- Session Methods ---
 
   Future<void> insertTrackSession(TrackSession session) async {
+    if (kIsWeb) return;
     final db = await database;
     await db.insert(
       'tracks',
@@ -68,6 +73,7 @@ class TrackingDatabaseService {
   }
 
   Future<void> updateTrackSession(TrackSession session) async {
+    if (kIsWeb) return;
     final db = await database;
     await db.update(
       'tracks',
@@ -78,6 +84,7 @@ class TrackingDatabaseService {
   }
 
   Future<void> deleteTrackSession(String id) async {
+    if (kIsWeb) return;
     final db = await database;
     await db.delete(
       'tracks',
@@ -87,12 +94,14 @@ class TrackingDatabaseService {
   }
 
   Future<List<TrackSession>> getAllTrackSessions() async {
+    if (kIsWeb) return [];
     final db = await database;
     final maps = await db.query('tracks', orderBy: 'start_time DESC');
     return List.generate(maps.length, (i) => TrackSession.fromMap(maps[i]));
   }
 
   Future<TrackSession?> getTrackSession(String id) async {
+    if (kIsWeb) return null;
     final db = await database;
     final maps = await db.query(
       'tracks',
@@ -108,6 +117,7 @@ class TrackingDatabaseService {
   // --- Point Methods ---
 
   Future<void> insertTrackPoint(TrackPoint point) async {
+    if (kIsWeb) return;
     final db = await database;
     await db.insert(
       'track_points',
@@ -117,6 +127,7 @@ class TrackingDatabaseService {
   }
 
   Future<List<TrackPoint>> getPointsForTrack(String trackId) async {
+    if (kIsWeb) return [];
     final db = await database;
     final maps = await db.query(
       'track_points',
