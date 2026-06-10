@@ -101485,7 +101485,7 @@ l=e.x?128:0
 k=n?B.oy:new A.R1(A.aVm(B.Mg,B.Mf))
 m=A.aVz(k,d,new A.bl(-33.16,26.58),13,new A.xA(~l&255),22,m,e.gaoq(),new A.aET(e,s),e.gaoN())
 l=A.b([],c)
-if(n)l.push(A.aXm(19,1/0,d,"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}","za.co.kwandwe.kwandwe_map"))
+if(n)l.push(A.aXm(19,1/0,d,"https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}","za.co.kwandwe.kwandwe_map"))
 if(a0)l.push(A.aTF(A.b([new A.le(new A.bl(a.a,a.b),a.f,A.au(38,B.aB.B()>>>16&255,B.aB.B()>>>8&255,B.aB.B()&255),1,A.au(102,B.aB.B()>>>16&255,B.aB.B()>>>8&255,B.aB.B()&255),!0,t.ex)],t.UE),t.K))
 n=s.r
 k=n!=null
