@@ -558,7 +558,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               // Global Satellite Overlay (Rendered on top of offline map)
               if (mapState.useGlobalSatellite)
                 TileLayer(
-                  urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  urlTemplate: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
                   userAgentPackageName: 'za.co.kwandwe.kwandwe_map',
                 ),
 
