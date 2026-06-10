@@ -1,4 +1,4 @@
-# Kwandwe Powerhouse Map
+# Kwandwe Map
 
 Offline GPS map app for Kwandwe Private Game Reserve.
 
